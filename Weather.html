@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pro Weather App</title>
+
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+          margin: 0;
+          font-family: Arial;
+          height: 100vh;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          background: linear-gradient(-45deg,#4facfe,#00f2fe,#43e97b,#38f9d7);
+          background-size: 400% 400%;
+          animation: bg 10s ease infinite;
+          color: white;
+        }
+
+        @keyframes bg {
+          0%{background-position:0% 50%}
+          50%{background-position:100% 50%}
+          100%{background-position:0% 50%}
+        }
+
+        .card {
+          width: 340px;
+          padding: 20px;
+          border-radius: 20px;
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(20px);
+          text-align: center;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        input {
+          width: 70%;
+          padding: 10px;
+          border: none;
+          border-radius: 10px;
+          margin: 5px;
+        }
+
+        button {
+          padding: 10px;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          margin: 3px;
+        }
+
+        img {
+          width: 70px;
+        }
+
+        .forecast {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 10px;
+          font-size: 12px;
+        }
+
+        .day {
+          background: rgba(255,255,255,0.1);
+          padding: 5px;
+          border-radius: 10px;
+        }
+
+        .fav {
+          margin-top: 10px;
+          font-size: 12px;
+          cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+
+    const API_KEY = "90ac5b5809299115a4bf2b34b207872c";
+
+    function App() {
+
+      const [city, setCity] = React.useState("");
+      const [weather, setWeather] = React.useState(null);
+      const [forecast, setForecast] = React.useState([]);
+      const [favorites, setFavorites] = React.useState(
+        JSON.parse(localStorage.getItem("fav")) || []
+      );
+
+      // 🌍 Search city
+      const getWeather = async (c) => {
+        const cityName = c || city;
+        if (!cityName) return;
+
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${API_KEY}&units=metric`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.cod == 200) {
+          setWeather(data);
+          getForecast(data.coord.lat, data.coord.lon);
+        } else {
+          alert(data.message);
+        }
+      };
+
+      // 📅 Forecast
+      const getForecast = async (lat, lon) => {
+        const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const daily = data.list.filter((_, i) => i % 8 === 0);
+        setForecast(daily);
+      };
+
+      // 📍 Location
+      const getLocation = () => {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          const { latitude, longitude } = pos.coords;
+
+          const url = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`;
+          const res = await fetch(url);
+          const data = await res.json();
+
+          setWeather(data);
+          getForecast(latitude, longitude);
+        });
+      };
+
+      // ⭐ Save favorites
+      const addFav = () => {
+        if (!weather) return;
+        const updated = [...favorites, weather.name];
+        setFavorites(updated);
+        localStorage.setItem("fav", JSON.stringify(updated));
+      };
+
+      return (
+        <div className="card">
+          <h2>🌤 Weather</h2>
+
+          <input value={city} onChange={e=>setCity(e.target.value)} placeholder="City"/>
+
+          <div>
+            <button onClick={()=>getWeather()}>Search</button>
+            <button onClick={getLocation}>📍</button>
+            <button onClick={addFav}>⭐</button>
+          </div>
+
+          {weather && (
+            <div>
+              <h3>{weather.name}</h3>
+              <img src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`} />
+              <h1>{weather.main.temp}°C</h1>
+              <p>{weather.weather[0].description}</p>
+            </div>
+          )}
+
+          {forecast.length > 0 && (
+            <div className="forecast">
+              {forecast.map((d,i)=>(
+                <div className="day" key={i}>
+                  <p>{new Date(d.dt_txt).toLocaleDateString("en-US",{weekday:"short"})}</p>
+                  <img src={`https://openweathermap.org/img/wn/${d.weather[0].icon}.png`} />
+                  <p>{Math.round(d.main.temp)}°</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {favorites.length > 0 && (
+            <div className="fav">
+              ⭐ Favorites:
+              {favorites.map((f,i)=>(
+                <span key={i} onClick={()=>getWeather(f)}> {f} </span>
+              ))}
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+</script>
+
+</body>
+</html>
